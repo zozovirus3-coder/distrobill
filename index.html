@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DistroBill - Distributor Billing App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { padding-bottom: 80px; background-color: #f3f4f6; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white; padding: 0; }
+      #printArea { display: block !important; }
+    }
+  </style>
+</head>
+<body class="text-gray-800 font-sans">
+
+  <!-- Top Header -->
+  <header class="bg-blue-700 text-white p-4 shadow sticky top-0 z-20 no-print flex justify-between items-center">
+    <div>
+      <h1 class="text-lg font-bold">DistroBill v1</h1>
+      <p class="text-xs text-blue-200">Distributor Billing & Stock</p>
+    </div>
+    <button onclick="loadDemoData()" class="text-xs bg-blue-600 hover:bg-blue-500 border border-blue-400 px-2.5 py-1.5 rounded">
+      + Demo Data
+    </button>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-lg mx-auto p-3 no-print">
+
+    <!-- ==================== TAB 1: NEW BILL ==================== -->
+    <section id="tab-bill" class="tab-content active space-y-4">
+      <div class="bg-white p-4 rounded-xl shadow-sm space-y-3">
+        <h2 class="font-bold text-base border-b pb-2">Naya Bill Banayein</h2>
+
+        <!-- Party Select -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Party (Customer) Chunein</label>
+          <select id="billParty" class="w-full border rounded-lg p-2.5 bg-gray-50 text-sm"></select>
+        </div>
+
+        <!-- Payment Mode -->
+        <div class="flex gap-2">
+          <div class="w-1/2">
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Payment Type</label>
+            <select id="billPayMode" class="w-full border rounded-lg p-2.5 bg-gray-50 text-sm">
+              <option value="Udhaar">Udhaar (Credit)</option>
+              <option value="Cash">Cash / UPI (Paid)</option>
+            </select>
+          </div>
+          <div class="w-1/2">
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Bill Date</label>
+            <input type="date" id="billDate" class="w-full border rounded-lg p-2 bg-gray-50 text-sm" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Item to Bill -->
+      <div class="bg-white p-4 rounded-xl shadow-sm space-y-3">
+        <h3 class="font-semibold text-sm text-gray-700">Item Add Karein</h3>
+
+        <select id="billItemSelect" onchange="fillItemDefaults()" class="w-full border rounded-lg p-2.5 bg-gray-50 text-sm"></select>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-gray-500">Qty (Bag/Pcs)</label>
+            <input type="number" id="bQty" placeholder="1" min="0.1" step="any" class="w-full border rounded-lg p-2 text-sm" />
+          </div>
+          <div>
+            <label class="text-xs text-gray-500">Rate (₹)</label>
+            <input type="number" id="bRate" placeholder="0" step="any" class="w-full border rounded-lg p-2 text-sm" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="text-xs text-gray-500">Trade Disc %</label>
+            <input type="number" id="bTD" value="0" step="any" class="w-full border rounded-lg p-2 text-sm" />
+          </div>
+          <div>
+            <label class="text-xs text-gray-500">Cash Disc %</label>
+            <input type="number" id="bCD" value="0" step="any" class="w-full border rounded-lg p-2 text-sm" />
+          </div>
+          <div>
+            <label class="text-xs text-gray-500">GST %</label>
+            <input type="number" id="bGST" value="0" step="any" class="w-full border rounded-lg p-2 text-sm" />
+          </div>
+        </div>
+
+        <button onclick="addItemToCart()" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold text-sm active:scale-95 transition">
+          + Bill Mein Jodein
+        </button>
+      </div>
+
+      <!-- Cart Preview -->
+      <div id="cartBox" class="bg-white p-4 rounded-xl shadow-sm space-y-3 hidden">
+        <h3 class="font-bold text-sm border-b pb-2">Bill Items</h3>
+        <div id="cartList" class="space-y-2 text-sm"></div>
+
+        <div class="border-t pt-3 space-y-1 text-sm">
+          <div class="flex justify-between text-gray-600"><span>Gross Amount:</span><span id="sumGross">₹0.00</span></div>
+          <div class="flex justify-between text-green-700"><span>Total Discount (TD+CD):</span><span id="sumDisc">-₹0.00</span></div>
+          <div class="flex justify-between text-gray-600"><span>Total GST:</span><span id="sumGST">₹0.00</span></div>
+          <div class="flex justify-between font-bold text-base text-blue-800 pt-1 border-t">
+            <span>Grand Total:</span><span id="sumTotal">₹0.00</span>
+          </div>
+        </div>
+
+        <button onclick="saveBill()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold text-sm shadow active:scale-95 transition">
+          Save Bill & Update Stock
+        </button>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: ITEMS & STOCK ==================== -->
+    <section id="tab-items" class="tab-content space-y-4">
+      <div class="bg-white p-4 rounded-xl shadow-sm space-y-3">
+        <h2 class="font-bold text-base border-b pb-2">Naya Item Add Karein</h2>
+        <input type="text" id="itemName" placeholder="Item Name (e.g. Aashirvaad Atta 10kg)" class="w-full border rounded-lg p-2.5 text-sm" />
+        <div class="grid grid-cols-2 gap-2">
+          <select id="itemUnit" class="border rounded-lg p-2.5 text-sm bg-gray-50">
+            <option value="Bag">Bag</option>
+            <option value="Box">Box / Peti</option>
+            <option value="Pcs">Pcs</option>
+            <option value="Kg">Kg</option>
+          </select>
+          <input type="number" id="itemRate" placeholder="Sale Rate (₹)" step="any" class="border rounded-lg p-2.5 text-sm" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <input type="number" id="itemGST" placeholder="GST % (e.g. 5, 18)" step="any" class="border rounded-lg p-2.5 text-sm" />
+          <input type="number" id="itemStock" placeholder="Opening Stock" step="any" class="border rounded-lg p-2.5 text-sm" />
+        </div>
+        <button onclick="addItem()" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold text-sm">
+          Item Save Karein
+        </button>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl shadow-sm">
+        <h3 class="font-bold text-sm mb-3">Stock List</h3>
+        <div id="itemsList" class="space-y-2 text-sm"></div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: PARTIES & UDHAAR ==================== -->
+    <section id="tab-parties" class="tab-content space-y-4">
+      <div class="bg-white p-4 rounded-xl shadow-sm space-y-3">
+        <h2 class="font-bold text-base border-b pb-2">Nayi Party Add Karein</h2>
+        <input type="text" id="partyName" placeholder="Shop / Party Name" class="w-full border rounded-lg p-2.5 text-sm" />
+        <div class="grid grid-cols-2 gap-2">
+          <input type="tel" id="partyPhone" placeholder="WhatsApp Number" class="border rounded-lg p-2.5 text-sm" />
+          <input type="text" id="partyRoute" placeholder="Route / Area" class="border rounded-lg p-2.5 text-sm" />
+        </div>
+        <input type="number" id="partyBal" placeholder="Purana Udhaar / Opening Bal (₹)" step="any" class="w-full border rounded-lg p-2.5 text-sm" />
+        <button onclick="addParty()" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold text-sm">
+          Party Save Karein
+        </button>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl shadow-sm">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="font-bold text-sm">Party Ledger (Udhaar)</h3>
+          <span id="totalUdhaarBadge" class="text-xs font-bold bg-red-100 text-red-700 px-2 py-1 rounded">Total: ₹0</span>
+        </div>
+        <div id="partiesList" class="space-y-2 text-sm"></div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: BILL HISTORY ==================== -->
+    <section id="tab-history" class="tab-content space-y-4">
+      <div class="bg-white p-4 rounded-xl shadow-sm">
+        <h2 class="font-bold text-base border-b pb-2 mb-3">Saved Bills</h2>
+        <div id="billsList" class="space-y-3 text-sm"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Hidden Print Area -->
+  <div id="printArea" class="hidden p-6 max-w-xl mx-auto text-sm"></div>
+
+  <!-- Bottom Navigation Bar -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg flex justify-around py-2.5 text-xs font-semibold no-print z-20">
+    <button onclick="switchTab('bill', this)" class="nav-btn text-blue-600 flex flex-col items-center">
+      <span>🧾</span><span>New Bill</span>
+    </button>
+    <button onclick="switchTab('items', this)" class="nav-btn text-gray-500 flex flex-col items-center">
+      <span>📦</span><span>Stock</span>
+    </button>
+    <button onclick="switchTab('parties', this)" class="nav-btn text-gray-500 flex flex-col items-center">
+      <span>👥</span><span>Parties</span>
+    </button>
+    <button onclick="switchTab('history', this)" class="nav-btn text-gray-500 flex flex-col items-center">
+      <span>📜</span><span>Bills</span>
+    </button>
+  </nav>
+
+  <script>
+    // LocalStorage Data
+    let items = JSON.parse(localStorage.getItem('db_items') || '[]');
+    let parties = JSON.parse(localStorage.getItem('db_parties') || '[]');
+    let bills = JSON.parse(localStorage.getItem('db_bills') || '[]');
+    let cart = [];
+
+    document.getElementById('billDate').valueAsDate = new Date();
+
+    function saveData() {
+      localStorage.setItem('db_items', JSON.stringify(items));
+      localStorage.setItem('db_parties', JSON.stringify(parties));
+      localStorage.setItem('db_bills', JSON.stringify(bills));
+      renderAll();
+    }
+
+    // Tab Switcher
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.replace('text-blue-600', 'text-gray-500'));
+      btn.classList.replace('text-gray-500', 'text-blue-600');
+    }
+
+    // Demo Data Loader
+    function loadDemoData() {
+      if (items.length > 0 && !confirm('Demo items aur parties add karein?')) return;
+      items.push(
+        { id: Date.now() + 1, name: 'Fortune Oil 15L Tin', unit: 'Box', rate: 2150, gst: 5, stock: 40 },
+        { id: Date.now() + 2, name: 'Aashirvaad Atta 10kg', unit: 'Bag', rate: 420, gst: 5, stock: 100 },
+        { id: Date.now() + 3, name: 'Surf Excel 1kg Pack', unit: 'Pcs', rate: 115, gst: 18, stock: 250 }
+      );
+      parties.push(
+        { id: Date.now() + 4, name: 'Sharma Kirana Store', phone: '9876543210', route: 'Main Market', balance: 4500 },
+        { id: Date.now() + 5, name: 'Gupta General Store', phone: '9123456780', route: 'Bus Stand Road', balance: 1200 }
+      );
+      saveData();
+      alert('Demo data add ho gaya! Ab bill bana kar test karein.');
+    }
+
+    // Add Item
+    function addItem() {
+      const name = document.getElementById('itemName').value.trim();
+      const unit = document.getElementById('itemUnit').value;
+      const rate = parseFloat(document.getElementById('itemRate').value) || 0;
+      const gst = parseFloat(document.getElementById('itemGST').value) || 0;
+      const stock = parseFloat(document.getElementById('itemStock').value) || 0;
+
+      if (!name || rate <= 0) return alert('Item ka naam aur sahi rate daalein.');
+      items.push({ id: Date.now(), name, unit, rate, gst, stock });
+      document.getElementById('itemName').value = '';
+      document.getElementById('itemRate').value = '';
+      document.getElementById('itemGST').value = '';
+      document.getElementById('itemStock').value = '';
+      saveData();
+    }
+
+    function deleteItem(id) {
+      if (!confirm('Is item ko delete karein?')) return;
+      items = items.filter(i => i.id !== id);
+      saveData();
+    }
+
+    // Add Party
+    function addParty() {
+      const name = document.getElementById('partyName').value.trim();
+      const phone = document.getElementById('partyPhone').value.trim();
+      const route = document.getElementById('partyRoute').value.trim() || 'General';
+      const balance = parseFloat(document.getElementById('partyBal').value) || 0;
+
+      if (!name) return alert('Party ka naam daalein.');
+      parties.push({ id: Date.now(), name, phone, route, balance });
+      document.getElementById('partyName').value = '';
+      document.getElementById('partyPhone').value = '';
+      document.getElementById('partyRoute').value = '';
+      document.getElementById('partyBal').value = '';
+      saveData();
+    }
+
+    function receivePayment(partyId) {
+      const party = parties.find(p => p.id === partyId);
+      const amt = parseFloat(prompt(`${party.name} se kitne paise mile (₹)?`, party.balance));
+      if (!isNaN(amt) && amt > 0) {
+        party.balance = Math.max(0, party.balance - amt);
+        saveData();
+      }
+    }
+
+    // Billing Helpers
+    function fillItemDefaults() {
+      const itemId = Number(document.getElementById('billItemSelect').value);
+      const item = items.find(i => i.id === itemId);
+      if (item) {
+        document.getElementById('bRate').value = item.rate;
+        document.getElementById('bGST').value = item.gst;
+      }
+    }
+
+    function addItemToCart() {
+      const itemId = Number(document.getElementById('billItemSelect').value);
+      const item = items.find(i => i.id === itemId);
+      if (!item) return alert('Pehle Item Master mein jakar item add karein.');
+
+      const qty = parseFloat(document.getElementById('bQty').value) || 0;
+      const rate = parseFloat(document.getElementById('bRate').value) || 0;
+      const tdPct = parseFloat(document.getElementById('bTD').value) || 0;
+      const cdPct = parseFloat(document.getElementById('bCD').value) || 0;
+      const gstPct = parseFloat(document.getElementById('bGST').value) || 0;
+
+      if (qty <= 0 || rate <= 0) return alert('Sahi Qty aur Rate daalein.');
+
+      // Distributor Sequential Formula: Gross -> Trade Disc -> Cash Disc -> GST
+      const gross = qty * rate;
+      const tdAmt = gross * (tdPct / 100);
+      const afterTD = gross - tdAmt;
+      const cdAmt = afterTD * (cdPct / 100);
+      const taxable = afterTD - cdAmt;
+      const gstAmt = taxable * (gstPct / 100);
+      const net = taxable + gstAmt;
+
+      cart.push({
+        itemId: item.id, name: item.name, unit: item.unit,
+        qty, rate, tdPct, cdPct, gstPct,
+        gross, discAmt: tdAmt + cdAmt, gstAmt, net
+      });
+
+      document.getElementById('bQty').value = '';
+      renderCart();
+    }
+
+    function removeFromCart(index) {
+      cart.splice(index, 1);
+      renderCart();
+    }
+
+    function renderCart() {
+      const box = document.getElementById('cartBox');
+      if (cart.length === 0) { box.classList.add('hidden'); return; }
+      box.classList.remove('hidden');
+
+      let tGross = 0, tDisc = 0, tGST = 0, tNet = 0;
+      document.getElementById('cartList').innerHTML = cart.map((c, idx) => {
+        tGross += c.gross; tDisc += c.discAmt; tGST += c.gstAmt; tNet += c.net;
+        return `
+          <div class="flex justify-between items-start bg-gray-50 p-2 rounded border">
+            <div>
+              <div class="font-semibold">${c.name}</div>
+              <div class="text-xs text-gray-500">${c.qty} ${c.unit} × ₹${c.rate} | TD:${c.tdPct}% CD:${c.cdPct}% GST:${c.gstPct}%</div>
+            </div>
+            <div class="text-right">
+              <div class="font-bold">₹${c.net.toFixed(2)}</div>
+              <button onclick="removeFromCart(${idx})" class="text-xs text-red-500">Remove</button>
+            </div>
+          </div>`;
+      }).join('');
+
+      document.getElementById('sumGross').innerText = '₹' + tGross.toFixed(2);
+      document.getElementById('sumDisc').innerText = '-₹' + tDisc.toFixed(2);
+      document.getElementById('sumGST').innerText = '₹' + tGST.toFixed(2);
+      document.getElementById('sumTotal').innerText = '₹' + Math.round(tNet).toFixed(2);
+    }
+
+    function saveBill() {
+      const partyId = Number(document.getElementById('billParty').value);
+      const party = parties.find(p => p.id === partyId);
+      if (!party) return alert('Pehle Party add aur select karein.');
+      if (cart.length === 0) return alert('Bill mein kam se kam 1 item add karein.');
+
+      const payMode = document.getElementById('billPayMode').value;
+      const date = document.getElementById('billDate').value;
+      const grandTotal = Math.round(cart.reduce((s, c) => s + c.net, 0));
+
+      // Update Stock
+      cart.forEach(c => {
+        const item = items.find(i => i.id === c.itemId);
+        if (item) item.stock -= c.qty;
+      });
+
+      // Update Party Balance if Udhaar
+      if (payMode === 'Udhaar') {
+        party.balance += grandTotal;
+      }
+
+      const bill = {
+        billNo: 'INV-' + (bills.length + 101),
+        date,
+        partyName: party.name,
+        partyPhone: party.phone,
+        payMode,
+        items: [...cart],
+        grandTotal
+      };
+
+      bills.unshift(bill);
+      cart = [];
+      renderCart();
+      saveData();
+      alert(`Bill ${bill.billNo} save ho gaya! Stock aur Ledger update ho chuke hain.`);
+    }
+
+    // WhatsApp Share
+    function shareWhatsApp(index) {
+      const b = bills[index];
+      let msg = `*INVOICE: ${b.billNo}*\nDate: ${b.date}\nParty: ${b.partyName}\nMode: ${b.payMode}\n------------------\n`;
+      b.items.forEach(i => {
+        msg += `${i.name} (${i.qty} ${i.unit} x ₹${i.rate}) = ₹${i.net.toFixed(2)}\n`;
+      });
+      msg += `------------------\n*Grand Total: ₹${b.grandTotal}*\nThank you for your business!`;
+      const phone = b.partyPhone ? '91' + b.partyPhone.replace(/\D/g, '').slice(-10) : '';
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    // Print / Save PDF
+    function printBill(index) {
+      const b = bills[index];
+      document.getElementById('printArea').innerHTML = `
+        <h2 class="text-xl font-bold text-center border-b pb-2">TAX INVOICE</h2>
+        <div class="flex justify-between my-3">
+          <div><b>Party:</b> ${b.partyName}<br/><b>Phone:</b> ${b.partyPhone || '-'}</div>
+          <div class="text-right"><b>Bill No:</b> ${b.billNo}<br/><b>Date:</b> ${b.date}<br/><b>Mode:</b> ${b.payMode}</div>
+        </div>
+        <table class="w-full border-collapse border text-xs mb-4">
+          <tr class="bg-gray-100">
+            <th class="border p-1.5 text-left">Item</th>
+            <th class="border p-1.5">Qty</th>
+            <th class="border p-1.5">Rate</th>
+            <th class="border p-1.5">Disc%</th>
+            <th class="border p-1.5">GST%</th>
+            <th class="border p-1.5 text-right">Amount</th>
+          </tr>
+          ${b.items.map(i => `
+            <tr>
+              <td class="border p-1.5">${i.name}</td>
+              <td class="border p-1.5 text-center">${i.qty} ${i.unit}</td>
+              <td class="border p-1.5 text-center">₹${i.rate}</td>
+              <td class="border p-1.5 text-center">${i.tdPct}+${i.cdPct}</td>
+              <td class="border p-1.5 text-center">${i.gstPct}%</td>
+              <td class="border p-1.5 text-right">₹${i.net.toFixed(2)}</td>
+            </tr>`).join('')}
+        </table>
+        <div class="text-right text-lg font-bold">Grand Total: ₹${b.grandTotal}</div>
+      `;
+      window.print();
+    }
+
+    // Render UI
+    function renderAll() {
+      // Dropdowns
+      document.getElementById('billParty').innerHTML = parties.length
+        ? parties
